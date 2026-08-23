@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Draft Rush</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#05080c;color:#f5f7fa;font-family:Inter,system-ui,sans-serif}.wrap{width:min(1100px,94vw);margin:auto;padding:28px 0 50px}.top{text-align:center}.eyebrow{color:#f5b63f;font-size:11px;font-weight:900;letter-spacing:.24em}.top h1{font-size:clamp(42px,8vw,82px);letter-spacing:-.07em;line-height:.9;margin:10px 0}.muted{color:#8490a0}.panel{background:#0b1118;border:1px solid #263342;border-radius:18px;padding:20px}.center{text-align:center}.row{display:flex;gap:10px}.row>*{flex:1}input{width:100%;padding:12px;background:#070b10;border:1px solid #2a3746;border-radius:9px;color:white}button{padding:13px 16px;border:0;border-radius:10px;font-weight:900;cursor:pointer}.gold{background:#f5b63f;color:#080b0e}.dark{background:#151e29;color:white;border:1px solid #2a3746}.hidden{display:none!important}.lobby{margin-top:18px}.teams{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:15px}.team{padding:11px;background:#0f1822;border:1px solid #253342;border-radius:10px}.ready{color:#39d98a;font-size:11px;font-weight:900}.count{font-size:clamp(42px,9vw,90px);font-weight:1000;margin:12px 0}.field{height:460px;margin-top:18px;border-radius:18px;overflow:hidden;position:relative;background:repeating-linear-gradient(90deg,#0b5a31 0 48px,#0a542d 48px 96px);border:1px solid #31513f}.field:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 9.7%,rgba(255,255,255,.25) 9.7% 9.9%)}.yard{position:absolute;inset:0;display:flex;justify-content:space-around;align-items:center;color:#ffffff70;font-weight:900;font-size:24px}.runner{position:absolute;left:6%;width:74px;transform:translate(-50%,-50%);transition:left .6s cubic-bezier(.15,.8,.2,1);z-index:2}.helmet{width:46px;height:46px;border-radius:50%;background:var(--c);border:3px solid white;display:grid;place-items:center;margin:auto;box-shadow:0 4px 18px #0008}.nm{text-align:center;font-size:10px;font-weight:900;margin-top:4px;white-space:nowrap;text-shadow:0 2px 4px #000}.event{position:absolute;z-index:5;left:50%;top:43%;transform:translate(-50%,-50%);background:#071019ee;border:1px solid #536174;border-radius:14px;padding:14px 20px;text-align:center;opacity:0}.event.show{animation:pop .9s ease}.event b{font-size:20px;display:block}@keyframes pop{15%,80%{opacity:1;transform:translate(-50%,-50%) scale(1)}0%,100%{opacity:0;transform:translate(-50%,-50%) scale(.82)}}.results{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:18px}.res{padding:13px;background:#0e1721;border:1px solid #263342;border-radius:10px;font-weight:900}.res:first-child{border-color:#f5b63f;background:#211a0b}.tools{display:flex;gap:8px;margin-top:15px}.tools button{flex:1}.url{font-size:13px;background:#070b10;border:1px solid #273443;padding:11px;border-radius:9px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}@media(max-width:700px){.teams{grid-template-columns:repeat(2,1fr)}.results{grid-template-columns:1fr}.row{flex-direction:column}}
+</style>
+</head>
+<body><div class="wrap">
+<header class="top"><div class="eyebrow">FANTASY FOOTBALL • LIVE LOTTERY</div><h1>🏈 DRAFT RUSH</h1><p class="muted">Your draft order. Settled on the field.</p></header>
+
+<div id="home" class="panel lobby">
+  <h2>Create a Draft Rush</h2>
+  <div class="row"><input id="league" value="2026 Fantasy League" placeholder="League name"><input id="date" type="datetime-local"></div>
+  <div class="teams" id="inputs"></div>
+  <button class="gold" id="create" style="width:100%;margin-top:12px">CREATE LIVE DRAFT RUSH</button>
+</div>
+
+<div id="room" class="hidden">
+  <div class="panel center lobby">
+    <div class="eyebrow" id="leagueTitle"></div>
+    <h2 id="roomTitle">DRAFT ORDER REVEAL</h2>
+    <div id="lobbyView">
+      <div class="count" id="count">READY</div>
+      <p class="muted">Share this link with the league.</p>
+      <div class="url" id="shareUrl"></div>
+      <div class="row" style="margin-top:10px"><input id="viewerName" placeholder="Your name (optional)"><button class="gold" id="join">JOIN LOBBY</button></div>
+      <div class="teams" id="joined"></div>
+      <button class="gold hidden" id="start" style="margin-top:15px">🏈 START THE RUSH</button>
+    </div>
+  </div>
+  <div id="liveView" class="hidden">
+    <div class="panel center" style="margin-top:18px"><div class="eyebrow" id="pickLabel">RACE</div><h2 id="pickTitle">GET READY</h2></div>
+    <div class="field" id="field"><div class="yard"><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>40</span><span>30</span><span>20</span><span>10</span></div><div id="runners"></div><div class="event" id="event"></div></div>
+  </div>
+  <div id="finalView" class="panel hidden" style="margin-top:18px"><div class="eyebrow">THE BOARD IS SET</div><h2>FINAL DRAFT ORDER</h2><div class="results" id="results"></div><div class="tools"><button class="gold" id="copy">COPY RESULTS</button></div></div>
+</div>
+</div>
+<script>
+const defaults=["Dustin","Mike","Chris","Jake","Matt","Tyler","Brandon","Nick","Kyle","Ryan","Josh","Tony"], I=document.getElementById("inputs");
+defaults.forEach((n,i)=>{let x=document.createElement("input");x.className="teamInput";x.value=n;x.placeholder="Team "+(i+1);I.appendChild(x)});
+const socket=io();let code=null,state=null;
+const $=id=>document.getElementById(id);
+function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+$("create").onclick=async()=>{let teams=[...document.querySelectorAll(".teamInput")].map(x=>x.value.trim()).filter(Boolean);let r=await fetch("/api/rooms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({league:$("league").value,teams,startAt:$("date").value?new Date($("date").value).toISOString():null})});let d=await r.json();if(d.error)return alert(d.error);location.href=d.url};
+function load(code){fetch("/api/rooms/"+code).then(r=>r.json()).then(d=>{if(d.error)return alert(d.error);state=d;render()})}
+const m=location.pathname.match(/\/r\/([^/]+)/);if(m){code=m[1];$("home").classList.add("hidden");$("room").classList.remove("hidden");socket.emit("join",{code,name:""});load(code)}
+$("join").onclick=()=>socket.emit("join",{code,name:$("viewerName").value});
+$("start").onclick=()=>socket.emit("commissionerStart",{code});
+socket.on("state",d=>{state=d;render()});socket.on("errorMessage",alert);
+function render(){
+ $("leagueTitle").textContent=state.league.toUpperCase();$("shareUrl").textContent=location.href;
+ $("joined").innerHTML=state.joined.map(n=>`<div class="team"><span class="ready">● READY</span><br>${esc(n)}</div>`).join("");
+ $("count").textContent=state.joined.length+" / "+state.teams.length;
+ $("start").classList.toggle("hidden",state.status!=="lobby"||state.joined.length<1);
+ $("lobbyView").classList.toggle("hidden",state.status!=="lobby");
+ $("liveView").classList.toggle("hidden",state.status!=="live");
+ $("finalView").classList.toggle("hidden",state.status!=="complete");
+ if(state.status==="live") renderRace();
+ if(state.status==="complete"){$("results").innerHTML=state.results.map((n,i)=>`<div class="res">${i===0?"🏆 ":"#"+(i+1)+" "}${esc(n)}</div>`).join("")}
+}
+function renderRace(){
+ let r=state.race;if(!r)return;
+ $("pickLabel").textContent="RACE FOR PICK #"+r.pick;$("pickTitle").textContent=r.winner? r.winner+" WINS!":"EVERYONE'S OFF";
+ const R=$("runners");R.innerHTML="";
+ (r.runners||[]).forEach((x,i)=>{let e=document.createElement("div");e.className="runner";e.style.top=(8+i*(84/Math.max(1,r.runners.length-1)))+"%";e.style.left=(6+(x.progress||0)*.88)+"%";e.style.setProperty("--c",`hsl(${35+i*29},75%,52%)`);e.innerHTML=`<div class="helmet">🏈</div><div class="nm">${esc(x.name)}</div>`;R.appendChild(e)});
+ if(r.event){$("event").innerHTML=`<b>${esc(r.event.text)}</b><span>${esc(r.event.name)}</span>`;$("event").classList.remove("show");void $("event").offsetWidth;$("event").classList.add("show")}
+}
+$("copy").onclick=()=>navigator.clipboard.writeText(state.results.map((n,i)=>`${i+1}. ${n}`).join("\n")).then(()=>{$("copy").textContent="COPIED!"});
+</script></body></html>
